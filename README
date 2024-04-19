@@ -1,0 +1,30 @@
+# Sequence Merger
+
+This repository contains a script for merging DNA sequences based on overlapping regions. It is designed to handle multi-sequence FASTA files, identifying and merging sequences that overlap by a specified length.
+
+## Dependencies
+- R (version 3.5.0 or higher)
+- Biostrings
+- argparse
+
+Ensure that these R packages are installed before running the script.
+
+## Usage
+The script is executed from the command line with Rscript. It requires several arguments:
+
+- `-f` or `--fasta`: Path to the multi-sequence FASTA file.
+- `-c` or `--contiglist`: File containing a list of contig names to be merged, in order.
+- `-o` or `--overlap`: Length of the overlap between sequences. Default is 500.
+- `-n` or `--contigname`: Base name for the merged contigs. Default is 'seq'.
+- `-out` or `--output`: Path to save the output file containing merged sequences.
+
+### Contig List File Format
+The contig list file should contain one contig name per line, in the order you wish them to be considered for merging. For example:
+
+contig1\
+contig2\
+contig3
+
+### Example Command
+```bash
+Rscript path/to/sequence_merger.R -f path/to/sequences.fasta -c path/to/contiglist.txt -out path/to/output.fasta
