@@ -7,16 +7,34 @@ parser$add_argument("-f", "--fasta", required=TRUE, help="Multi-sequence FASTA f
 parser$add_argument("-c", "--contiglist", required=TRUE, help="Sorted contiglist for merging")
 parser$add_argument("-o", "--overlap", default=500, type="integer", help="Overlap length")
 parser$add_argument("-n", "--contigname", default='seq', type="character", help="Basename of the merged contigs")
+parser$add_argument("-i", "--interactive", action="store_true",
+                    help="Enable interactive mode to resolve multiple matches manually")
 parser$add_argument("-out", "--output", required=TRUE, help="Output file for merged sequences")
 
 args <- parser$parse_args()
 
-args = list()
-args$fasta = "/Users/Z364220/projects/15q13/trio2/child_t2_line.fa"
-args$contiglist = "/Users/Z364220/projects/15q13/trio2/t2_child_utigs.txt"
-args$overlap = 500
-args$contigname = 'seq'
-args$output = ''#/Users/Z364220/projects/mini-programs/contig-merger/data/trio4/mother/mf/mf.fa'
+
+read_choice_blocking <- function(n_options, prompt = "Enter the number (0 to skip): ") {
+  tty_path <- if (.Platform$OS.type == "windows") "CON" else "/dev/tty"
+
+  if (!file.exists(tty_path)) {
+    stop("Interactive mode requested but no TTY is available. ",
+         "Run from a real terminal, not through a redirected input/output.")
+  }
+
+  con <- file(tty_path, open = "r")
+  on.exit(close(con), add = TRUE)
+
+  repeat {
+    cat(prompt); flush.console()
+    line <- readLines(con, n = 1, warn = FALSE)
+    if (length(line) == 0) next
+    val <- suppressWarnings(as.integer(line))
+    if (!is.na(val) && val >= 0 && val <= n_options) return(val)
+    cat("Invalid choice. Try again.\n"); flush.console()
+  }
+}
+
 
 merge_sequences <- function(seqs, overlap_length, max.mismatch = 3) {
   idx_baseseq <- 1
@@ -34,13 +52,42 @@ merge_sequences <- function(seqs, overlap_length, max.mismatch = 3) {
       candidate_parts <- c(candidate_seq, reverseComplement(candidate_seq))
 
         for (n_candidate in seq_along(candidate_parts)) {
-
+          #print(n_candidate)
           candidate = candidate_parts[n_candidate]
           match_position <- matchPattern(last_part[[1]], candidate[[1]])
-          if ((length(match_position) > 1)){
-            stop("Multiple matches found within one seq. Consider increasing window size, or check your fasta.")
-          }
           
+          if ((length(match_position) > 1)) {
+            if (!isTRUE(args$interactive)) {
+              #print(match_position)
+              stop("Multiple matches found within one seq. Consider increasing window size, or check your fasta.")
+            } else {
+              cat("\nMultiple matches found between", names(seqs)[idx_baseseq],
+                  "and", names(seqs)[i], "\n")
+              cat("Candidate sequence:", names(seqs)[i], "\n")
+              cat("Match positions:\n")
+              for (j in seq_along(match_position)) {
+                m <- match_position[j]
+                cat(sprintf("  [%d] start=%d end=%d width=%d\n",
+                            j, start(m), end(m), width(m)))
+              }
+
+              choice <- read_choice_blocking(
+                n_options = length(match_position),
+                prompt = "Enter the number of the match to use (or 0 to skip): "
+              )
+
+              if (choice == 0L) {
+                cat("Skipping candidate...\n")
+                next
+              }
+
+              match_position <- match_position[choice]
+              cat(sprintf("Using match #%d (start=%d, end=%d)\n",
+                          choice, start(match_position), end(match_position)))
+            }
+          }
+
+                    
           if ((length(match_position) == 0)){
             next # Next candidate
           } 
@@ -69,8 +116,8 @@ merge_sequences <- function(seqs, overlap_length, max.mismatch = 3) {
             start_candidate
           }
           
+
           match_certified = matchPattern(end_base_seq_trimmed[[1]], start_candidate_trimmed[[1]], max.mismatch = max.mismatch, with.indels = T)
-          
           if ((length(match_certified) == 0)){
             print(paste0('Rejecting a merge between ', names(seqs)[idx_baseseq], ' and ', names(seqs)[i]))
             #browser()
@@ -144,11 +191,11 @@ merge_sequences <- function(seqs, overlap_length, max.mismatch = 3) {
 seqs <- readDNAStringSet(filepath = args$fasta)
 names_contigs_to_merge <- read.table(args$contiglist, header = FALSE, stringsAsFactors = FALSE)$V1
 
-
+#names_contigs_to_merge = c('utg000228l', 'utg000227l')
 
 seqs_contigs_to_merge = seqs[names_contigs_to_merge,]
 merged_seqs <- 
-    merge_sequences(seqs_contigs_to_merge, args$overlap, max.mismatch=10)
+    merge_sequences(seqs_contigs_to_merge, args$overlap, max.mismatch=5)
 
 
 
@@ -170,3 +217,4 @@ Biostrings::writeXStringSet(merged_seqs, args$output)
 # Inform the user what was done and where the saved file is
 print(paste0("Merged ", length(seqs_contigs_to_merge), " sequences into ", length(merged_seqs), " sequences."))
 print(paste0("Saved merged sequences to ", args$output))
+
