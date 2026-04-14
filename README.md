@@ -62,13 +62,30 @@ Run the script to obtain a single curated merged assembly.
 ## Usage
 
 ```bash
-Rscript sequence_merger.R \
+Rscript merge_contigs.R \
   -f sequences.fasta \
   -c contiglist.txt \
   -o 500 \   # minimal overlap length to allow contig merging
   -n merged_seq \
   -out output.fasta
 ```
+
+------------------------------------------------------------------------
+
+## Example run of contig merger
+
+test-data contains a toy example of three artificial 'contigs' of 20bp each (c1, c2, c3), where c1-c2 and c2-c3 overlap by 5bp respectively. 
+In test-data/contiglist we instruct the tool to merge c1->c2->c3 and name the new sequence '>mergedoutput'.
+
+```bash
+Rscript merge_contigs.R \
+  -f ../test-data/toysequences.fasta \
+  -c ../test-data/contiglist.txt \
+  -o 5 \   
+  -n mergedoutput \
+  -out test-data/toy_merged.fa
+```
+
 
 ------------------------------------------------------------------------
 
